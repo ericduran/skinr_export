@@ -1,2 +1,18 @@
 <?php
 // $Id$
+
+/**
+ * Implementation hook_help().
+ */
+function skinr_export_help($path, $arg) {
+
+}
+
+/**
+ * Implementation of hook_schema_alter().
+ * Makes the skinr table usable by ctools' export.inc.
+ */
+function skinr_export_schema_alter(&$schema) {
+
+}
+
