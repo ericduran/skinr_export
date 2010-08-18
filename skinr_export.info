@@ -1,0 +1,6 @@
+;$Id$
+name = Skinr Export
+description = Allows export of Skinr Settings.
+package = Skinr
+core = 6.x
+dependencies[] = skinr
