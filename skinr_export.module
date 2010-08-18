@@ -13,7 +13,6 @@ function skinr_export_help($path, $arg) {
  * Makes the skinr table usable by ctools' export.inc.
  */
 function skinr_export_schema_alter(&$schema) {
-  //!TODO: We need to get rid of the sid
   $schema['skinr']['export'] = array(
     'key' => 'sid',
     'primary key' => array('theme', 'module', 'sid'),
@@ -24,7 +23,7 @@ function skinr_export_schema_alter(&$schema) {
       'api' => 'skinr',
       'minimum_version' => 1,
       'current_version' => 1,
-    ),
+    ), 
   );
 }
 
