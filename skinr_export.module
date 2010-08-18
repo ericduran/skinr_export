@@ -19,7 +19,7 @@ function skinr_export_schema_alter(&$schema) {
     'identifier' => 'skins',
     'default hook' => 'default_skinr_skins',
     'api' => array(
-      'owner' => 'skinr_export',
+      'owner' => 'skinr',
       'api' => 'skinr',
       'minimum_version' => 1,
       'current_version' => 1,
@@ -31,7 +31,7 @@ function skinr_export_schema_alter(&$schema) {
 * Implementation of hook_ctools_plugin_api().
 */
 function skinr_export_ctools_plugin_api($owner, $api) {
-  if ($owner == 'skinr_export' && $api == 'skinr_skins') {
+  if ($owner == 'skinr' && $api == 'skinr_skins') {
     return array('version' => 1);
   }
 }
@@ -40,11 +40,35 @@ function skinr_export_ctools_plugin_api($owner, $api) {
  * Load a single skins object.
  */
 function skinr_export_skins_load($name) {
-  //TODO: Come back to this. This function does nothing right now, also I might be passing the wrong object,
-  // Is late and I'm confused btwn the skins_skins, skins, and default_skinr_skins lol
   ctools_include('export');
-  $result = ctools_export_load_object('skinr_skins', 'names', array($name));
+  $result = ctools_export_load_object('skinr', 'names', array('sid' => $name));
   if (isset($result[$name])) {
     return $result[$name];
   }
+}
+
+/**
+ * Load all skins object.
+ */
+function skinr_export_skins_load_all() {
+  ctools_include('export');
+  $result = ctools_export_load_object('skinr');
+  return $result;
+}
+
+/**
+ * Implementation of hook_skinr_alter().
+ */
+function skinr_export_skinr_skins_alter(&$skins, $module, $sids, $settings) {
+ static $exported_skins;
+
+ if (!isset($exported_skins)) {
+  $exported_skins = skinr_export_skins_load_all();
+ }
+
+ foreach ($sids as $sid) {
+  if (isset($exported_skins[$sid])) {
+    $skins = $exported_skins[$sid]->skins;
+  }
+ }
 }
