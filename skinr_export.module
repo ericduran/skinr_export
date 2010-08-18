@@ -2,7 +2,7 @@
 // $Id$
 
 /**
- * Implementation hook_help().
+ * Implementation of hook_help().
  */
 function skinr_export_help($path, $arg) {
 
@@ -13,6 +13,26 @@ function skinr_export_help($path, $arg) {
  * Makes the skinr table usable by ctools' export.inc.
  */
 function skinr_export_schema_alter(&$schema) {
-
+  //!TODO: We need to get rid of the sid
+  $schema['skinr']['export'] = array(
+    'key' => 'sid',
+    'primary key' => array('theme', 'module', 'sid'),
+    'identifier' => 'skins',
+    'default hook' => 'default_skinr_skins',
+    'api' => array(
+      'owner' => 'skinr_export',
+      'api' => 'skinr',
+      'minimum_version' => 1,
+      'current_version' => 1,
+    ),
+  );
 }
 
+/**
+* Implementation of hook_ctools_plugin_api().
+*/
+function skinr_export_ctools_plugin_api($owner, $api) {
+  if ($owner == 'skinr_export' && $api == 'skinr_skins') {
+    return array('version' => 1);
+  }
+}
