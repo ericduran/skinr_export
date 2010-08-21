@@ -57,9 +57,9 @@ function skinr_export_skins_load_all() {
 }
 
 /**
- * Help
+ * A helper function to only get the skinr object that haven't been overwritten
  */
-function _skinr_export_skins_load_only_code(){
+function _skinr_export_skins_load_only_code() {
   static $code_only_skins;
 
   if (isset($code_only_skins)) {
