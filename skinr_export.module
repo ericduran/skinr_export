@@ -132,6 +132,21 @@ function skinr_export_form_alter(&$form, $form_state, $form_id) {
       }
     }
   }
+  if ($form_id == 'skinr_ui_form') {
+    $exported_skins = _skinr_export_skins_load_only_code();
+    if($exported_skins[$form['skinr']['sid']['#value']]){
+      foreach ($exported_skins as $skin) {
+        foreach($skin->skins as $skin_key => $skin_setting) {
+          if ($skin_key != '_additional') {
+            $form['skinr_settings']['block_group'][$skin->theme]['widgets'][$skin_key]['#default_value'] = $skin_setting;          
+          }
+          else {
+            $form['skinr_settings']['block_group'][$skin->theme][$skin_key]['#default_value'] = $skin_setting;
+          }
+        }
+      }
+    }
+  }  
 }
 
 
