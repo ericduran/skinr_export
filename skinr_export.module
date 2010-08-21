@@ -19,7 +19,7 @@ function skinr_export_schema_alter(&$schema) {
     'identifier' => 'skins',
     'default hook' => 'default_skinr_skins',
     'api' => array(
-      'owner' => 'skinr',
+      'owner' => 'skinr_export',
       'api' => 'skinr',
       'minimum_version' => 1,
       'current_version' => 1,
@@ -31,7 +31,7 @@ function skinr_export_schema_alter(&$schema) {
 * Implementation of hook_ctools_plugin_api().
 */
 function skinr_export_ctools_plugin_api($owner, $api) {
-  if ($owner == 'skinr' && $api == 'skinr_skins') {
+  if ($owner == 'skinr_export' && $api == 'skinr_skins') {
     return array('version' => 1);
   }
 }
@@ -57,13 +57,34 @@ function skinr_export_skins_load_all() {
 }
 
 /**
+ * Help
+ */
+function _skinr_export_skins_load_only_code(){
+  static $code_only_skins;
+
+  if (isset($code_only_skins)) {
+    return $code_only_skins;
+  }
+  
+  $skins = skinr_export_skins_load_all();
+  foreach ($skins as $sid) {
+   if (isset($sid->in_code_only)) {
+     $code_only_skins[$sid->sid] = $sid;
+   }
+  }
+  
+  return $code_only_skins;
+}
+
+/**
  * Implementation of hook_skinr_alter().
  */
 function skinr_export_skinr_skins_alter(&$skins, $module, $sids, $settings) {
  static $exported_skins;
 
  if (!isset($exported_skins)) {
-  $exported_skins = skinr_export_skins_load_all();
+  //We only inject the exported skins into the skinr object if it live only in code 
+  $exported_skins = _skinr_export_skins_load_only_code();
  }
 
  foreach ($sids as $sid) {
@@ -72,3 +93,45 @@ function skinr_export_skinr_skins_alter(&$skins, $module, $sids, $settings) {
   }
  }
 }
+
+/**
+ * Implementation of hook_form_alter().
+ *
+ * Skinr implements a pretty good set of hook functions, sadly the loading of skinr objects (skinr_get) 
+ * are direct sql queries. So we'll need to merge the edit forms with the data from the exportable
+ * at least while it's in a default state. When is overwritten we don't need to worry since it's change.
+ * I might find a better way to do this down the road. Still new to skinr :) 
+ */
+function skinr_export_form_alter(&$form, $form_state, $form_id) {
+  //We need to inject the skinr settings in two places, the skinr listing page and 
+  //the skinr edit page for the specific skinr object
+  if ($form_id == 'skinr_ui_list') {
+    $exported_skins = _skinr_export_skins_load_only_code();
+    if (!empty($exported_skins)) {
+      $themes = list_themes();
+      $destination = drupal_get_destination();
+      
+      foreach ($exported_skins as $skin) {
+        $theme = $themes[$skin->theme];
+        $key = $theme->name .'__'. $skin->module .'__'. $skin->sid;
+        $url_edit = 'admin/build/skinr/edit/nojs/'. $skin->module .'/'. $skin->sid;
+        $operations = array(
+          'edit' => array(
+            'title' => t('overwrite'),
+            'href' => $url_edit,
+            'query' => $destination,
+          ),
+        );
+        
+        $form['admin']['rows']['#value'][$key] = array(
+          'theme' => $theme->info['name'], 
+          'type' => $skin->module, 
+          'sid' => $skin->sid,
+          'operations' => theme('links', $operations, array('class' => 'links inline')),
+        );
+      }
+    }
+  }
+}
+
+
