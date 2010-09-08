@@ -1,0 +1,491 @@
+Index: skinr_ui.admin.inc
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/skinr/skinr_ui.admin.inc,v
+retrieving revision 1.1.2.16
+diff -u -p -r1.1.2.16 skinr_ui.admin.inc
+--- skinr_ui.admin.inc	11 Aug 2010 15:12:44 -0000	1.1.2.16
++++ skinr_ui.admin.inc	8 Sep 2010 06:19:31 -0000
+@@ -6,156 +6,6 @@
+  * Admin page callbacks for the skinr module.
+  */
+ 
+-/**
+- * Menu callback; displays the skinr listing page.
+- */
+-function skinr_ui_list($form_state) {
+-  if (isset($form_state['values']['operation']) && $form_state['values']['operation'] == 'delete') {
+-    return skinr_ui_settings_multiple_delete_confirm($form_state, array_filter($form_state['values']['skinr_settings']));
+-  }
+-  $form = skinr_ui_filter_form();
+-
+-  $form['#theme'] = 'skinr_ui_filter_form';
+-  $form['admin']  = skinr_ui_admin_skins();
+-
+-  return $form;
+-}
+-
+-/**
+- * Form builder: Builds the skinr administration overview.
+- */
+-function skinr_ui_admin_skins() {
+-  $session = !empty($_SESSION['skinr_ui_overview_filter']) && is_array($_SESSION['skinr_ui_overview_filter']) ? $_SESSION['skinr_ui_overview_filter'] : array();
+-  $filters = array();
+-  foreach ($session as $filter) {
+-    list($key, $value) = $filter;
+-    $filters[$key] = $value;
+-  }
+-
+-  $sorts = array();
+-
+-  $form['options'] = array(
+-    '#type' => 'fieldset',
+-    '#title' => t('Update options'),
+-    '#prefix' => '<div class="container-inline">',
+-    '#suffix' => '</div>',
+-  );
+-  $options = array();
+-  foreach (module_invoke_all('skinr_operations') as $operation => $array) {
+-    $options[$operation] = $array['label'];
+-  }
+-  $form['options']['operation'] = array(
+-    '#type' => 'select',
+-    '#options' => $options,
+-    '#default_value' => 'approve',
+-  );
+-  $form['options']['submit'] = array(
+-    '#type' => 'submit',
+-    '#value' => t('Update'),
+-    '#submit' => array('skinr_ui_admin_skins_submit'),
+-  );
+-
+-  $themes = list_themes();
+-  ksort($themes);
+-
+-  $skinr_settings = array();
+-  $options = array();
+-  $destination = drupal_get_destination();
+-  $type = !empty($filters['type']) ? $filters['type'] : NULL;
+-
+-  foreach ($themes as $theme) {
+-    if (!$theme->status || (!empty($filters['theme']) && $filters['theme'] != $theme->name)) {
+-      continue;
+-    }
+-    if (empty($type)) {
+-      $skinrs = skinr_get($theme->name);
+-    }
+-    else {
+-      $skinrs = array($type => skinr_get($theme->name, $type));
+-    }
+-
+-    foreach ($skinrs as $module => $elements) {
+-      foreach ($elements as $sid => $skin) {
+-        $key = $theme->name .'__'. $module .'__'. $sid;
+-        $skinr_settings[$key] = '';
+-
+-        if ($module == 'page') {
+-          $url_edit   = 'admin/build/skinr/rule/edit/'. $sid;
+-        }
+-        else {
+-          $url_edit = 'admin/build/skinr/edit/nojs/'. $module .'/'. $sid;
+-        }
+-        $url_delete = 'admin/build/skinr/delete/'. $theme->name .'/'. $module .'/'. $sid;
+-        $operations = array(
+-          'edit' => array(
+-            'title' => t('edit'),
+-            'href' => $url_edit,
+-            'query' => $destination,
+-          ),
+-          'delete' => array(
+-            'title' => t('delete'),
+-            'href' => $url_delete,
+-            'query' => $destination,
+-          ),
+-        );
+-        $options[$key] = array(
+-          'theme' => $theme->info['name'],
+-          'type' => $module,
+-          'sid' => $sid,
+-          'operations' => theme('links', $operations, array('class' => 'links inline')),
+-        );
+-      }
+-    }
+-  }
+-
+-  $form['rows'] = array('#type' => 'value', '#value' => $options);
+-  $form['skinr_settings'] = array('#type' => 'checkboxes', '#options' => $skinr_settings);
+-  $form['#theme'] = 'skinr_ui_admin_skins';
+-
+-  return $form;
+-}
+-
+-/**
+- * Validate skinr_ui_admin_skins form submissions.
+- *
+- * Check if any skinr settings have been selected to perform the chosen
+- * 'Update option' on.
+- */
+-function skinr_ui_admin_skins_validate($form, &$form_state) {
+-  $skinr_settings = array_filter($form_state['values']['skinr_settings']);
+-  if (count($skinr_settings) == 0) {
+-    form_set_error('', t('No items selected.'));
+-  }
+-}
+-
+-/**
+- * Process skinr_ui_admin_skins form submissions.
+- * 
+- * Execute the chosen 'Update option' on the selected nodes.
+- */
+-function skinr_ui_admin_skins_submit($form, &$form_state) {
+-  $operations = module_invoke_all('skinr_operations');
+-  $operation = $operations[$form_state['values']['operation']];
+-  // Filter out unchecked nodes
+-  $skinr_settings = array_filter($form_state['values']['skinr_settings']);
+-  if ($function = $operation['callback']) {
+-    // Add in callback arguments if present.
+-    if (isset($operation['callback arguments'])) {
+-      $args = array_merge(array($nodes), $operation['callback arguments']);
+-    }
+-    else {
+-      $args = array($skinr_settings);
+-    }
+-    call_user_func_array($function, $args);
+-
+-    cache_clear_all();
+-  }
+-  else {
+-    // We need to rebuild the form to go to a second step.  For example, to
+-    // show the confirmation form for the deletion of nodes.
+-    $form_state['rebuild'] = TRUE;
+-  }
+-}
+ 
+ /**
+  * Implementation of hook_skinr_operations().
+@@ -171,176 +21,6 @@ function skinr_ui_skinr_operations() {
+ }
+ 
+ /**
+- * List skinr administration filters that can be applied.
+- */
+-function skinr_ui_filters() {
+-  // Theme filter.
+-  $themes = list_themes();
+-  ksort($themes);
+-
+-  $options = array();
+-  foreach ($themes as $theme) {
+-    if (!$theme->status) {
+-      continue;
+-    }
+-    $options[$theme->name] = $theme->info['name'];
+-  }
+-
+-  $filters['theme'] = array(
+-    'title' => t('theme'),
+-    'options' => $options,
+-  );
+-
+-  // Type filter.
+-  $config = skinr_fetch_config();
+-
+-  $options = array();
+-  foreach ($config as $type => $data) {
+-    $options[$type] = $type;
+-  }
+-
+-  $filters['type'] = array(
+-    'title' => t('type'),
+-    'options' => $options,
+-  );
+-
+-  return $filters;
+-}
+-
+-/**
+- * Return form for skinr administration filters.
+- */
+-function skinr_ui_filter_form() {
+-  $session = &$_SESSION['skinr_ui_overview_filter'];
+-  $session = is_array($session) ? $session : array();
+-  $filters = skinr_ui_filters();
+-
+-  $i = 0;
+-  $form['filters'] = array(
+-    '#type' => 'fieldset',
+-    '#title' => t('Show only items where'),
+-    '#theme' => 'skinr_ui_filters',
+-  );
+-  $form['#submit'][] = 'skinr_ui_filter_form_submit';
+-  foreach ($session as $filter) {
+-    list($type, $value) = $filter;
+-    $value = $filters[$type]['options'][$value];
+-
+-    if ($i++) {
+-      $form['filters']['current'][] = array('#value' => t('<em>and</em> where <strong>%a</strong> is <strong>%b</strong>', array('%a' => $filters[$type]['title'], '%b' => $value)));
+-    }
+-    else {
+-      $form['filters']['current'][] = array('#value' => t('<strong>%a</strong> is <strong>%b</strong>', array('%a' => $filters[$type]['title'], '%b' => $value)));
+-    }
+-    if (in_array($type, array('theme', 'type'))) {
+-      // Remove the option if it is already being filtered on.
+-      unset($filters[$type]);
+-    }
+-  }
+-
+-  foreach ($filters as $key => $filter) {
+-    $names[$key] = $filter['title'];
+-    $form['filters']['status'][$key] = array('#type' => 'select', '#options' => $filter['options']);
+-  }
+-
+-  $form['filters']['filter'] = array('#type' => 'radios', '#options' => $names, '#default_value' => 'status');
+-  if (count($filters)) {
+-    $form['filters']['buttons']['submit'] = array('#type' => 'submit', '#value' => (count($session) ? t('Refine') : t('Filter')));
+-  }
+-  if (count($session)) {
+-    $form['filters']['buttons']['undo'] = array('#type' => 'submit', '#value' => t('Undo'));
+-    $form['filters']['buttons']['reset'] = array('#type' => 'submit', '#value' => t('Reset'));
+-  }
+-
+-  drupal_add_js('misc/form.js', 'core');
+-
+-  return $form;
+-}
+-
+-/**
+- * Theme skinr administration filter form.
+- *
+- * @ingroup themeable
+- */
+-function theme_skinr_ui_filter_form($form) {
+-  $output = '';
+-  $output .= '<div id="skinr-ui-admin-filter">';
+-  $output .= drupal_render($form['filters']);
+-  $output .= '</div>';
+-  $output .= drupal_render($form);
+-  return $output;
+-}
+-
+-/**
+- * Theme skinr administration filter selector.
+- *
+- * @ingroup themeable
+- */
+-function theme_skinr_ui_filters($form) {
+-  $output = '';
+-  $output .= '<ul class="clear-block">';
+-  if (!empty($form['current'])) {
+-    foreach (element_children($form['current']) as $key) {
+-      $output .= '<li>'. drupal_render($form['current'][$key]) .'</li>';
+-    }
+-  }
+-
+-  $output .= '<li><dl class="multiselect">';
+-  
+-  $element_children = element_children($form['filter']);
+-  if (!empty($element_children)) {
+-    $output .= (!empty($form['current']) ? '<dt><em>'. t('and') .'</em> '. t('where') .'</dt>' : '') .'<dd class="a">';
+-    foreach ($element_children as $key) {
+-      $output .= drupal_render($form['filter'][$key]);
+-    }
+-    $output .= '</dd>';
+-  
+-    $output .= '<dt>'. t('is') .'</dt>';
+-  }
+-  
+-  $output .= '<dd class="b">';
+-
+-  foreach (element_children($form['status']) as $key) {
+-    $output .= drupal_render($form['status'][$key]);
+-  }
+-  $output .= '</dd>';
+-
+-  $output .= '</dl>';
+-  $output .= '<div class="container-inline" id="node-admin-buttons">'. drupal_render($form['buttons']) .'</div>';
+-  $output .= '</li></ul>';
+-
+-  return $output;
+-}
+-
+-/**
+- * Process result from node administration filter form.
+- */
+-function skinr_ui_filter_form_submit($form, &$form_state) {
+-  $filters = skinr_ui_filters();
+-  switch ($form_state['values']['op']) {
+-    case t('Filter'):
+-    case t('Refine'):
+-      if (isset($form_state['values']['filter'])) {
+-        $filter = $form_state['values']['filter'];
+-
+-        // Flatten the options array to accommodate hierarchical/nested options.
+-        $flat_options = form_options_flatten($filters[$filter]['options']);
+-
+-        if (isset($flat_options[$form_state['values'][$filter]])) {
+-          $_SESSION['skinr_ui_overview_filter'][] = array($filter, $form_state['values'][$filter]);
+-        }
+-      }
+-      break;
+-    case t('Undo'):
+-      array_pop($_SESSION['skinr_ui_overview_filter']);
+-      break;
+-    case t('Reset'):
+-      $_SESSION['skinr_ui_overview_filter'] = array();
+-      break;
+-  }
+-}
+-
+-/**
+  * Menu callback; displays the skinr settings administration form.
+  */
+ function skinr_ui_admin_form(&$form_state) {
+@@ -830,75 +510,6 @@ function skinr_ui_delete_confirm_submit(
+ }
+ 
+ /**
+- * Theme function for Skinr UI's list form.
+- *
+- * @param $form
+- *   An associative array containing the structure of the form.
+- * @ingroup themeable
+- */
+-function theme_skinr_ui_admin_skins($form) {
+-  $has_skins = isset($form['rows']['#value']) && is_array($form['rows']['#value']);
+-  $select_header = $has_skins ? theme('table_select_header_cell') : '';
+-  $headers = array(
+-    $select_header,
+-    array('data' => t('Theme'), 'field' => 'theme'),
+-    array('data' => t('Type'), 'field' => 'type'),
+-    array('data' => t('Skinr ID'), 'field' => 'sid'),
+-    t('Operations'),
+-  );
+-
+-  $output .= drupal_render($form['options']);
+-  if ($has_skins) {
+-    $ts = tablesort_init($headers);
+-    $sort = SORT_DESC;
+-    if ($ts['sort'] == 'asc') {
+-      $sort = SORT_ASC;
+-    }
+-
+-    switch ($ts['sql']) {
+-      case 'type':
+-        $sortby = 2;
+-        break;
+-
+-      case 'sid':
+-        $sortby = 3;
+-        break;
+-
+-      case 'theme':
+-      default:
+-        $sortby = 1;
+-        break;
+-    }
+-
+-    $rows = array();
+-    $sorts = array();
+-    foreach ($form['rows']['#value'] as $key => $value) {
+-      $row = array();
+-      $row[] = drupal_render($form['skinr_settings'][$key]);
+-      $row[] = $value['theme'];
+-      $row[] = $value['type'];
+-      $row[] = $value['sid'];
+-      $row[] = $value['operations'];
+-      $rows[$key] = $row;
+-      $sorts[] = strip_tags($rows[$key][$sortby]);
+-    }
+-
+-    // Sort table.
+-    array_multisort($sorts, $sort, $rows);
+-  }
+-  else {
+-    $rows[] = array(array('data' => t('No skinr settings available.'), 'colspan' => '5'));
+-  }
+-
+-  // Output table.
+-  $output .= theme('table', $headers, $rows);
+-
+-  $output .= drupal_render($form);
+-
+-  return $output;
+-}
+-
+-/**
+  * Theme function for Skinr UI's skinsets form.
+  *
+  * @param $form
+Index: skinr_ui.module
+===================================================================
+RCS file: /cvs/drupal-contrib/contributions/modules/skinr/skinr_ui.module,v
+retrieving revision 1.1.2.44
+diff -u -p -r1.1.2.44 skinr_ui.module
+--- skinr_ui.module	11 Aug 2010 15:19:49 -0000	1.1.2.44
++++ skinr_ui.module	8 Sep 2010 06:19:32 -0000
+@@ -12,20 +12,6 @@ function skinr_ui_perm() {
+  * Implementation of hook_menu().
+  */
+ function skinr_ui_menu() {
+-  $items['admin/build/skinr'] = array(
+-    'title' => 'Skinr',
+-    'description' => 'Manage your skinr settings and rules, import and export skinr settings for each theme, and configure skinr\'s overlay settings.',
+-    'page callback' => 'drupal_get_form',
+-    'page arguments' => array('skinr_ui_list', NULL),
+-    'access arguments' => array('administer skinr'),
+-    'file' => 'skinr_ui.admin.inc',
+-  );
+-  $items['admin/build/skinr/list'] = array(
+-    'title' => 'List',
+-    'type' => MENU_DEFAULT_LOCAL_TASK,
+-    'weight' => -10,
+-  );
+-
+   // Themes.
+   $items['admin/build/skinr/skins'] = array(
+     'title' => 'Skins',
+@@ -35,6 +21,7 @@ function skinr_ui_menu() {
+     'type' => MENU_LOCAL_TASK,
+     'access arguments' => array('administer site configuration'),
+     'file' => 'skinr_ui.admin.inc',
++    'weight' => -2,
+   );
+   $items['admin/build/skinr/skins/select'] = array(
+     'title' => 'List',
+@@ -58,7 +45,7 @@ function skinr_ui_menu() {
+     'type' => MENU_LOCAL_TASK,
+     'access arguments' => array('administer skinr'),
+     'parent' => 'admin/build/skinr',
+-    'weight' => 1,
++    'weight' => -1,
+     'file' => 'skinr_ui.rules.inc',
+   );
+   $items['admin/build/skinr/rules/add'] = array(
+@@ -86,28 +73,6 @@ function skinr_ui_menu() {
+     'file' => 'skinr_ui.rules.inc',
+   );
+ 
+-  // Import & Export.
+-  $items['admin/build/skinr/import'] = array(
+-    'title' => 'Import',
+-    'page callback' => 'drupal_get_form',
+-    'page arguments' => array('skinr_ui_import_form'),
+-    'type' => MENU_LOCAL_TASK,
+-    'access arguments' => array('administer skinr'),
+-    'parent' => 'admin/build/skinr',
+-    'weight' => 2,
+-    'file' => 'skinr_ui.admin.inc',
+-  );
+-  $items['admin/build/skinr/export'] = array(
+-    'title' => 'Export',
+-    'page callback' => 'drupal_get_form',
+-    'page arguments' => array('skinr_ui_export_form'),
+-    'type' => MENU_LOCAL_TASK,
+-    'access arguments' => array('administer skinr'),
+-    'parent' => 'admin/build/skinr',
+-    'weight' => 3,
+-    'file' => 'skinr_ui.admin.inc',
+-  );
+-
+   // Settings.
+   $items['admin/build/skinr/settings'] = array(
+     'title' => 'Settings',
