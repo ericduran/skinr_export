@@ -18,10 +18,12 @@ class skinr_export_ui extends ctools_export_ui {
    * probably call parent::hook_menu($items) and then modify as needed.
    */
   function hook_menu(&$items) {
+    
     parent::hook_menu($items);
     
-    //We want to unset all the default skinr ui, as we don't want to reimplemet it
-    unset($items['admin/build/skinr/add']);
+    //We wont be using the add
+    //I haven't found a nicer way to remove this
+    unset($items['admin/build/skinr/add']);  
   }
 
 
@@ -112,11 +114,11 @@ class skinr_export_ui extends ctools_export_ui {
       $header[] = array('data' => t('Title'), 'class' => 'ctools-export-ui-title');
     }
 
-    $header[] = array('data' => t('Skinr-Id'), 'class' => 'ctools-export-ui-name');
-    $header[] = array('data' => t('Storage'), 'class' => 'ctools-export-ui-storage');
-    $header[] = array('data' => t('Operations'), 'class' => 'ctools-export-ui-operations');
     $header[] = array('data' => t('Theme'), 'class' => 'ctools-export-ui-theme');
     $header[] = array('data' => t('Module'), 'class' => 'ctools-export-ui-theme');
+    $header[] = array('data' => t('Sid'), 'class' => 'ctools-export-ui-name');
+    $header[] = array('data' => t('Storage'), 'class' => 'ctools-export-ui-storage');
+    $header[] = array('data' => t('Operations'), 'class' => 'ctools-export-ui-operations');
 
     return $header;
   }
@@ -135,19 +137,22 @@ class skinr_export_ui extends ctools_export_ui {
     
     //Edit the 'edit' link to used skinr's edit link
     if ($item->module == 'page') {
-      $operations['edit']['href']   = 'admin/build/skinr/rule/edit/'. $item->sid;
+      $operations['edit']['href']   = 'admin/build/skinr/rule/edit/'. $item->sid . $destination;
     }
     else {
-      $operations['edit']['href'] = 'admin/build/skinr/edit/nojs/'. $item->module .'/'. $item->sid;
+      $operations['edit']['href'] = 'admin/build/skinr/edit/nojs/'. $item->module .'/'. $item->sid . $destination;
     }
       
     parent::list_build_row($item, $form_state, $operations);
     
-    
+    $themes = list_themes();
     $name = $item->{$this->plugin['export']['key']};
     
-    $this->rows[$name]['data'][] = array('data' => check_plain($item->theme), 'class' => 'skinr-export-ui-theme');
-    $this->rows[$name]['data'][] = array('data' => check_plain($item->module), 'class' => 'skinr-export-ui-module');
+    $skin_theme_name = array('data' => check_plain($themes[$item->theme]->info['name']), 'class' => 'skinr-export-ui-theme');
+    $skin_module = array('data' => check_plain($item->module), 'class' => 'skinr-export-ui-module');
+    array_unshift($this->rows[$name]['data'], $skin_theme_name, $skin_module);
+
+  
   
   }
 }
