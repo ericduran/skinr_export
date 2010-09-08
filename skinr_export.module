@@ -37,6 +37,15 @@ function skinr_export_ctools_plugin_api($owner, $api) {
 }
 
 /**
+* Implementation of hook__ctools_plugin_directory().
+*/
+function skinr_export_ctools_plugin_directory($module, $plugin) {
+  if ($module == 'ctools' && $plugin == 'export_ui') {
+    return 'plugins/' . $plugin;
+  }
+}
+
+/**
  * Load a single skins object.
  */
 function skinr_export_skins_load($name) {
