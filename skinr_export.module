@@ -77,7 +77,7 @@ function _skinr_export_skins_load_only_code() {
   
   $skins = skinr_export_skins_load_all();
   foreach ($skins as $sid) {
-   if (isset($sid->in_code_only)) {
+   if (isset($sid->export_type)) {
      $code_only_skins[$sid->sid] = $sid;
    }
   }
@@ -95,10 +95,17 @@ function skinr_export_skinr_skins_alter(&$skins, $module, $sids, $settings) {
   //We only inject the exported skins into the skinr object if it live only in code 
   $exported_skins = _skinr_export_skins_load_only_code();
  }
-
  foreach ($sids as $sid) {
   if (isset($exported_skins[$sid])) {
-    $skins = $exported_skins[$sid]->skins;
+    if ($exported_skins[$sid]->disabled) {
+      //if the skin is disabled we're going to reset the skin array
+      $_skinr = $skins['_skinr'];
+      $_skinr_id = $skins['_skinr_id'];
+      $skins = array('_skinr' =>  $_skinr, '_skinr_id' => $_skinr_id);
+    }
+    else{
+      $skins = array_merge($skins, $exported_skins[$sid]->skins);       
+    }
   }
  }
 }
@@ -112,35 +119,6 @@ function skinr_export_skinr_skins_alter(&$skins, $module, $sids, $settings) {
  * I might find a better way to do this down the road. Still new to skinr :) 
  */
 function skinr_export_form_alter(&$form, $form_state, $form_id) {
-  //We need to inject the skinr settings in two places, the skinr listing page and 
-  //the skinr edit page for the specific skinr object
-  if ($form_id == 'skinr_ui_list') {
-    $exported_skins = _skinr_export_skins_load_only_code();
-    if (!empty($exported_skins)) {
-      $themes = list_themes();
-      $destination = drupal_get_destination();
-      
-      foreach ($exported_skins as $skin) {
-        $theme = $themes[$skin->theme];
-        $key = $theme->name .'__'. $skin->module .'__'. $skin->sid;
-        $url_edit = 'admin/build/skinr/edit/nojs/'. $skin->module .'/'. $skin->sid;
-        $operations = array(
-          'edit' => array(
-            'title' => t('overwrite'),
-            'href' => $url_edit,
-            'query' => $destination,
-          ),
-        );
-        
-        $form['admin']['rows']['#value'][$key] = array(
-          'theme' => $theme->info['name'], 
-          'type' => $skin->module, 
-          'sid' => $skin->sid,
-          'operations' => theme('links', $operations, array('class' => 'links inline')),
-        );
-      }
-    }
-  }
   if ($form_id == 'skinr_ui_form') {
     $exported_skins = _skinr_export_skins_load_only_code();
     if($exported_skins[$form['skinr']['sid']['#value']]){
@@ -157,5 +135,3 @@ function skinr_export_form_alter(&$form, $form_state, $form_id) {
     }
   }  
 }
-
-
